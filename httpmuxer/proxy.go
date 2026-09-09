@@ -3,6 +3,7 @@ package httpmuxer
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/tls"
 	"encoding/base64"
 	"io"
@@ -19,13 +20,15 @@ import (
 // RoundTripper returns the specific handler for unix connections. This
 // will allow us to use our created sockets cleanly.
 func RoundTripper() *http.Transport {
-	dialer := func(network, addr string) (net.Conn, error) {
+	dialer := func(ctx context.Context, network, addr string) (net.Conn, error) {
 		realAddr, err := base64.StdEncoding.DecodeString(strings.Split(addr, ":")[0])
 		if err != nil {
 			log.Println("Unable to parse socket:", err)
 		}
 
-		return net.Dial("unix", string(realAddr))
+		var d net.Dialer
+
+		return d.DialContext(ctx, "unix", string(realAddr))
 	}
 
 	tlsConfig := &tls.Config{
@@ -33,7 +36,7 @@ func RoundTripper() *http.Transport {
 	}
 
 	return &http.Transport{
-		Dial:            dialer,
+		DialContext:     dialer,
 		TLSClientConfig: tlsConfig,
 	}
 }
